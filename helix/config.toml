@@ -1,0 +1,50 @@
+theme = "tejas"
+
+[editor]
+completion-trigger-len = 1
+line-number = "relative"
+bufferline = "always"
+color-modes = true
+mouse = false
+shell = ["zsh", "-c"]
+
+[editor.lsp]
+display-messages = true
+display-inlay-hints = true
+
+[editor.indent-guides]
+render = true
+character = "┊"
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.statusline]
+left = ["mode", "spinner", "total-line-numbers", "file-encoding"]
+center = ["diagnostics", "workspace-diagnostics",]
+right = ["position", "position-percentage", "spacer", "separator", "spacer", "version-control"]
+
+# KEYMAPS
+
+[keys.normal]
+"ret" = ["add_newline_below", "move_visual_line_down"] 
+"C-ret" = ["add_newline_above", "move_visual_line_up"] 
+"X" = "extend_line_above"
+"Z" = ":wa"
+"home" = "increment"
+
+[keys.select]
+X = "extend_line_above"
+
+[keys.insert]
+"C-ret" = "open_above"
+"C-right" = ["move_next_word_end", "collapse_selection" , "move_char_right"]
+"C-left" = ["move_prev_word_start", "collapse_selection" ]
+"C-backspace" = ["delete_word_backward"]
+"A-w"= ["delete_word_forward"]
+
+[keys.normal.space]
+"q" = ":q"
+"/" = [":pipe-to wezterm cli split-pane -- helix-live-grep"]

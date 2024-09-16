@@ -1,0 +1,131 @@
+[language-server.emmet-language-server]
+command = "emmet-language-server"
+args = ["--stdio"]
+
+[language-server.tailwindcss-html]
+command = "hx-tw"
+args = ["--stdio"]
+
+[language-server.purescript-language-server]
+command = "purescript-language-server"
+args = ["--stdio"]
+
+[language-server.json-server]
+command = "vscode-json-languageserver"
+args = ["--stdio"]
+
+[language-server.typescript-language-server]
+command = "typescript-language-server"
+args = ["--stdio"]
+
+[[language]]
+name = "purescript"
+language-servers = ["purescript-language-server"]
+
+[[language]]
+name = "html"
+scope = "text.html.basic"
+file-types = ["html"]
+language-servers = [ "tailwindcss-html","emmet-language-server", { name = "vscode-html-language-server", except-features = [ "format" ] }, { name = "efm", only-features = [  "format" ] }, "biome-lint"]
+
+[[language]]
+name = "php"
+file-types = ["php"]
+language-servers = [ "tailwindcss-html","emmet-language-server", "phpP" ]
+
+
+# biome official 
+
+[language-server]
+biome = { command = "biome", args = ["lsp-proxy"] }
+
+[[language]]
+name = "javascript"
+auto-format = true
+comment-token = "//"
+file-types = ["js", "mjs", "cjs"]
+injection-regex = "(js|javascript)"
+language-id = "javascript"
+language-servers = ["typescript-language-server", "biome"]
+roots = []
+scope = "source.js"
+shebangs = ["node"]
+
+[language.formatter]
+command = "biome"
+args = ["format", "--stdin-file-path", "test.js"]
+
+[language.indent]
+tab-width = 2
+unit = "  "
+
+[[language]]
+name = "typescript"
+auto-format = true
+file-types = ["ts", "mts", "cts"]
+injection-regex = "(ts|typescript)"
+language-id = "typescript"
+language-servers = ["typescript-language-server", "biome"]
+roots = []
+scope = "source.ts"
+shebangs = []
+
+[language.formatter]
+command = "biome"
+args = ["format", "--stdin-file-path", "test.ts"]
+
+[language.indent]
+tab-width = 2
+unit = "\t"
+
+[[language]]
+name = "tsx"
+auto-format = true
+file-types = ["tsx"]
+injection-regex = "(tsx)"
+language-id = "typescriptreact"
+language-servers = ["typescript-language-server", "biome", "emmet-language-server","tailwindcss-html"]
+roots = []
+scope = "source.tsx"
+
+[language.formatter]
+command = "biome"
+args = ["format", "--stdin-file-path", "test.tsx"]
+
+[language.indent]
+tab-width = 2
+unit = "\t"
+
+[[language]]
+name = "jsx"
+auto-format = true
+comment-token = "//"
+file-types = ["jsx"]
+grammar = "javascript"
+injection-regex = "jsx"
+language-id = "javascriptreact"
+language-servers = ["typescript-language-server", "biome", "emmet-language-server","tailwindcss-html"]
+roots = []
+scope = "source.jsx"
+
+[language.formatter]
+command = "biome"
+args = ["format", "--stdin-file-path", "test.jsx"]
+
+[language.indent]
+tab-width = 2
+unit = "\t"
+
+[[language]]
+name = "json"
+auto-format = true
+file-types = ["json", "jsonc", "arb", "ipynb", "geojson"]
+injection-regex = "json"
+language-servers = ["biome"]
+roots = []
+scope = "source.json"
+
+[language.formatter]
+command = "biome"
+args = ["format", "--stdin-file-path", "test.json"]
+
