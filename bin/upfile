@@ -1,0 +1,26 @@
+if [ $# -eq 0 ]; then
+    temp_file=$(mktemp)
+    cat > "$temp_file"
+    file_to_upload="$temp_file"
+else
+    file_to_upload="$1"
+fi
+
+if [ ! -f "$file_to_upload" ] && [ ! -p "$file_to_upload" ]; then
+    echo "Error: File '$file_to_upload' does not exist."
+    exit 1
+fi
+
+output=$(curl -s -F "file=@$file_to_upload" https://0x0.st)
+
+if [[ "$output" == http* ]]; then
+    echo "File uploaded successfully."
+    echo "$output"
+    echo -n "$output" | wl-copy
+    echo "Link copied to clipboard."
+else
+    echo "Upload failed."
+    echo "Response: $output"
+fi
+
+[ -n "$temp_file" ] && rm -f "$temp_file"

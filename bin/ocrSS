@@ -1,0 +1,11 @@
+#!/bin/bash
+
+img=$(mktemp /tmp/ocr-XXXX.png)
+txt=$(mktemp /tmp/ocr-XXXX.txt)
+
+grim -g "$(slurp)" "$img"
+ocrs "$img" -o "$txt"
+
+wl-copy < "$txt"
+
+rm "$img" "$txt"

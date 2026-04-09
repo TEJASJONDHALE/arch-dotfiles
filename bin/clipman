@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+    cliphist list -max-items 100000
+else
+    cliphist decode  -max-items 100000 <<<"$1" | wl-copy
+fi

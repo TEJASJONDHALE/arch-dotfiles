@@ -1,0 +1,245 @@
+#!/usr/bin/env perl
+
+# SPDX-FileCopyrightText: 2003 - 2022 Michael Pyne <mpyne@kde.org>
+# SPDX-FileCopyrightText: 2018 - 2020 Johan Ouwerkerk <jm.ouwerkerk@gmail.com>
+# SPDX-FileCopyrightText: 2005, 2006, 2008 - 2011 David Faure <faure@kde.org>
+# SPDX-FileCopyrightText: 2005 Thiago Macieira <thiago@kde.org>
+# SPDX-FileCopyrightText: 2006 Stephan Kulow <coolo@kde.org>
+# SPDX-FileCopyrightText: 2006, 2008 Dirk Mueller <mueller@kde.org>
+# SPDX-FileCopyrightText: 2004 - 2024 The kdesrc-build authors
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# Script to handle building KDE from source code.
+#
+# Configuration is found in $XDG_CONFIG_HOME/kdesrc-buildrc,
+# with fallback at ~/.kdesrc-buildrc. $XDG_CONFIG_HOME normally ".config"
+#
+# Please also see the documentation that should be included with this program,
+# in the doc/ directory.
+#
+# Home page: https://apps.kde.org/kdesrc_build/
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51
+# Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+####  Script start.  Step 1: Tell Perl where to find our 'ksb' modules in relation
+####  to where we are at.
+
+use v5.26;
+use strict;
+use warnings;
+
+# In most environments $RealBin can be provided by FindBin but on many
+# container-based distros even FindBin is missing to conserve space.
+# If it is missing we can use File::Spec to do nearly the same.
+use File::Spec;
+my $RealBin;
+
+# We have to amend @INC when parsing (i.e. in BEGIN) to make the
+# use call below (which itself implicitly use BEGIN { }) work
+BEGIN {
+    # Try FindBin first since it handles relative symlinks to this binary
+    # better.
+    eval {
+      require FindBin;
+      $RealBin = $FindBin::RealBin;
+    };
+    # Could not load FindBin, do our best to emulate what it does.
+    if ($@) {
+        my $scriptPath = $0;
+        for (1..16) {
+            last unless -l $scriptPath;
+            $scriptPath = readlink $scriptPath;
+        }
+        die "Too many symlinks followed looking for script" if -l $scriptPath;
+
+        my ($volume, $directories, $script) = File::Spec->splitpath($scriptPath);
+        $RealBin = File::Spec->catpath($volume, $directories, '');
+    }
+    die "Couldn't find base directory!" unless $RealBin;
+
+    # Use modules in git repo if running from git dir, otherwise assume
+    # system install
+    my $modPath = File::Spec->rel2abs('modules', $RealBin);
+    $modPath = ($RealBin =~ s,/bin/?$,/share/kdesrc-build/modules,r)
+        unless -d $modPath;
+
+    die "Couldn't find modules for kdesrc-build!" unless $modPath;
+
+    # We use third party embedded modules but we should prefer system versions if
+    # available so add to the end of @INC rather than the beginning, this is why
+    # we don't do "use lib '$modPath'"
+    push @INC, "$modPath";
+}
+
+####  Now that Perl can find our modules, load them and start processing command line arguments
+
+use ksb; # Enable boilerplate
+
+# When running in a limited environment, we might not be able to load
+# our modules although we can find them. In this case we should help user
+# by setting up system dependencies.
+eval {
+    my @setup_steps;
+
+    if (grep { $_ eq "--initial-setup" } @ARGV) {
+        push @setup_steps, "install-distro-packages-perl";  # pl2py: kdesrc-specific, not going to kde-builder
+        push @setup_steps, "install-distro-packages";
+        push @setup_steps, "generate-config";
+    } else {
+        if (grep {$_ eq "--install-distro-packages-perl"} @ARGV) {  # pl2py: kdesrc-specific, not going to kde-builder
+            push @setup_steps, "install-distro-packages-perl";
+        }
+        if (grep {$_ eq "--install-distro-packages"} @ARGV) {
+            push @setup_steps, "install-distro-packages";
+        }
+        if (grep {$_ eq "--generate-config"} @ARGV) {
+            push @setup_steps, "generate-config";
+        }
+    }
+
+    if (@setup_steps) {
+        require ksb::FirstRun;
+        require ksb::Debug;
+        ksb::Debug::setColorfulOutput(1);
+        exit ksb::FirstRun::setupUserSystem(File::Spec->rel2abs($RealBin), @setup_steps);
+    }
+};
+
+if ($@) {
+    say STDERR <<DONE;
+* kdesrc-build was unable to load initial setup support for some reason.
+* Did you remember to install the base dependencies for kdesrc-build?
+* Ensure you have run --install-distro-packages-perl (included in --initial-setup) before you run further steps.
+* https://community.kde.org/Get_Involved/development/Set_up_a_development_environment#Install_basic_tools
+
+$@
+
+You could:
+ File a bug https://bugs.kde.org/enter_bug.cgi?product=kdesrc-build
+ Ask for help on irc.libera.chat in the #kde channel
+DONE
+    exit 1;
+}
+
+# Even though the flow of execution should not make it here unless the modules
+# we need are installed, we still cannot "use" the modules that might be
+# missing on first use since just trying to parse/compile the code is then
+# enough to cause errors.
+eval {
+    require Carp;
+    require ksb::Debug;
+    require ksb::Util;
+    require ksb::Version;
+    require ksb::Application;
+    require ksb::BuildException;
+};
+
+if ($@) {
+    say STDERR <<DONE;
+Couldn't load the base platform for kdesrc-build!
+
+$@
+DONE
+
+    # According to XDG spec, if $XDG_CONFIG_HOME is not set, then we should default
+    # to ~/.config
+    my $xdgConfigHome = $ENV{XDG_CONFIG_HOME} // "$ENV{HOME}/.config";
+    my @possibleConfigPaths = ("./kdesrc-buildrc",
+                               "$xdgConfigHome/kdesrc-buildrc",
+                               "$ENV{HOME}/.kdesrc-buildrc");
+
+    if (!grep { -e $_ } (@possibleConfigPaths)) {
+        say STDERR <<~DONE;
+        It appears you've not run kdesrc-build before.
+
+        Please run "kdesrc-build --initial-setup" and kdesrc-build will guide you
+        through setting up required dependencies and environment setup.
+        DONE
+    } else {
+        say STDERR <<~DONE;
+        You could:
+         File a bug https://bugs.kde.org/enter_bug.cgi?product=kdesrc-build
+         Ask for help on irc.libera.chat in the #kde channel
+        DONE
+    }
+    exit 1;
+}
+
+ksb::Debug->import();
+ksb::Util->import();
+ksb::BuildException->import();
+ksb::Version->import(qw(scriptVersion));
+ksb::Application->import();
+
+# Make Perl 'plain die' exceptions use Carp::confess instead of their core
+# support. This is not supported by the Perl 5 authors but assuming it works
+# will be better than the alternative backtrace we get (which is to say, none)
+$SIG{__DIE__} = \&Carp::confess;
+
+ksb::Version::setBasePath($RealBin);
+
+# Script starts.
+
+# Adding in a way to load all the functions without running the program to
+# enable some kind of automated QA testing.
+if (defined caller && caller eq 'test')
+{
+    my $scriptVersion = scriptVersion();
+    say "kdesrc-build being run from testing framework, BRING IT.";
+    say "kdesrc-build is version $scriptVersion";
+    return 1;
+}
+
+my $app;
+
+eval
+{
+    $app = ksb::Application->new(@ARGV);
+
+    my $result = $app->runAllModulePhases();
+
+    $app->finish($result); # noreturn
+};
+
+if (my $err = $@)
+{
+    if (had_an_exception()) {
+        say <<~DONE;
+        kdesrc-build encountered an exceptional error condition:
+         ========
+            $err
+         ========
+        Can't continue, so stopping now.
+
+        DONE
+
+        if ($err->{'exception_type'} eq 'Internal') {
+            say "Please submit a bug against kdesrc-build on https://bugs.kde.org/";
+        }
+    } else {
+        # We encountered some other kind of error that didn't raise a ksb::BuildException
+        say <<~DONE;
+        Encountered an error in the execution of the script.
+        --> $err
+        Please submit a bug against kdesrc-build on https://bugs.kde.org/
+        DONE
+    }
+
+    $app->finish(99) if $app; # noreturn
+    exit 99; # if $app couldn't be created
+}
+
+# vim: set et sw=4 ts=4 fdm=marker:
