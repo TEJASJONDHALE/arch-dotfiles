@@ -5,9 +5,20 @@ return {
         version = false,
         config = function()
             require("mini.files").setup({
-                windows = { preview = true },
+                windows = {
+                    preview = true,
+                    width_focus = 30,
+                    width_nofocus = 15,
+                    width_preview = 50,
+                    max_number = 4,  -- max columns shown at once
+                },
             })
-
+            vim.api.nvim_create_autocmd("User", {
+                pattern = "MiniFilesWindowOpen",
+                callback = function(args)
+                    vim.wo[args.data.win_id].wrap = true
+                end,
+            })
             -- `-` opens explorer rooted at current file's directory
             vim.keymap.set("n", "-", function()
                 MiniFiles.open(vim.api.nvim_buf_get_name(0))
@@ -69,9 +80,7 @@ return {
         config = function()
             require("nvim-treesitter").setup({
                 ensure_installed = {
-                    "lua", "python", "javascript", "typescript",
-                    "bash", "json", "yaml", "toml", "markdown",
-                    "html", "css", "go", "rust",
+                    "lua", "python","go","bash","vim","vimdoc","ini",
                 },
                 auto_install = true,
             })

@@ -19,7 +19,9 @@ opt.hlsearch = true
 opt.termguicolors = true
 opt.signcolumn = "yes"
 opt.cursorline = true
-opt.wrap = false
+opt.wrap = true
+opt.linebreak = true
+opt.breakindent = true
 opt.showmode = false        -- statusline handles this
 opt.laststatus = 3          -- global statusline
 
